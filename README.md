@@ -73,4 +73,51 @@ Real-hardware job IDs (4 qubits, `ibm_kingston`): baseline `dani9678gn2s739mmcv0
 
 **Takeaways**
 
-- `teleport_reduce` returned the circuit unchanged. The TFIM
+- `full_reduce` cut the T-count from 70 to 24 (about 66% lower), the large win you would expect from a T-count optimizer on a Toffoli-heavy circuit. `teleport_reduce` did not reduce the T-count.
+- That T-count reduction did not translate into lower error. On the 4-qubit adder `aggressive` was clearly the worst, and at 10 qubits all three versions are close.
+- No real-hardware runs have been done for the adder yet.
+
+## Overall findings so far
+
+- **Equivalence is guaranteed, accuracy is not.** Every reduced circuit passes `verify_equality`, but a reduction that is better on paper (lower T-count) is not necessarily better on a noisy device.
+- **`teleport_reduce` is safe but often does nothing.** It matches the baseline whenever there are no matching phases to merge.
+- **`full_reduce` helps T-count and hurts two-qubit gate count and depth.** Which one matters more depends on the circuit and the backend. On the TFIM, two-qubit gates and depth appear to dominate as the circuit grows.
+- Which reducer is best depends on the circuit family, which is the reason for testing multiple circuits.
+
+## Caveats
+
+- Most results are from the `FakeKingston` noise model, not real hardware. Real hardware was run only for the 4-qubit TFIM.
+- Single-run results (adder sweep, real hardware) have no error bars.
+- Results are specific to these circuits and to the transpiler settings used (optimization level 1).
+- The 16 and 19 qubit adder runs are slow on the fake backend and were not finished.
+
+## Setup
+
+```bash
+pip install qiskit qiskit_aer qiskit-ibm-runtime pyzx pylatexenc
+```
+
+The notebooks were developed on Python 3.13 with Qiskit 2.5, qiskit-ibm-runtime 0.50, and PyZX 0.10.7. They were written for Google Colab but run in any Jupyter environment.
+
+### Running on real hardware
+
+Real runs need an IBM Quantum account saved with `QiskitRuntimeService`. The backend is pinned to `ibm_kingston` (not "least busy") so results stay comparable to `FakeKingston`.
+
+In the adder notebook, `REAL_MODE` controls IBM usage:
+
+| `REAL_MODE` | Behavior |
+|---|---|
+| `"off"` | Never contacts IBM (default) |
+| `"submit"` | Submits jobs once and prints the job IDs to save |
+| `"restore"` | Loads results from `saved_job_ids`, no new jobs |
+
+In the TFIM notebook, real results are restored from saved job IDs via `retrieve_results_from_job_ids`.
+
+## Possible next steps
+
+- Run the adder on real hardware and compare it to the fake backend.
+- Investigate why `full_reduce` helps the 4-qubit TFIM but hurts at 5 and 10 qubits.
+- Test other PyZX strategies (for example `clifford_simp` and `interior_clifford_simp`).
+- Compare at multiple transpiler optimization levels, and decompose the baseline Toffolis so gate counts are directly comparable.
+- Add more circuit families (QFT, Grover, random Clifford+T).
+  
